@@ -50,6 +50,8 @@ from .const import DEVICE_TYPE_DECO
 from .const import DOMAIN
 from .const import PLATFORMS
 from .const import SERVICE_REBOOT_DECO
+from .const import SERVICE_BLOCK_CLIENT
+from .const import SERVICE_UNBLOCK_CLIENT
 from .coordinator import TpLinkDeco
 from .coordinator import TpLinkDecoClient
 from .coordinator import TpLinkDecoData
@@ -200,6 +202,40 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         schema=vol.Schema(
             {
                 vol.Required(ATTR_DEVICE_ID): vol.All(cv.ensure_list(str), [str]),
+            }
+        ),
+    )
+
+    async def async_block_client(service: ServiceCall) -> None:
+        mac = service.data.get("mac_address")
+        if not mac:
+            raise Exception("mac_address is required for block_client service")
+        await deco_coordinator.api.async_block_client(mac.upper())
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_BLOCK_CLIENT,
+        async_block_client,
+        schema=vol.Schema(
+            {
+                vol.Required("mac_address"): cv.string,
+            }
+        ),
+    )
+
+    async def async_unblock_client(service: ServiceCall) -> None:
+        mac = service.data.get("mac_address")
+        if not mac:
+            raise Exception("mac_address is required for unblock_client service")
+        await deco_coordinator.api.async_unblock_client(mac.upper())
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UNBLOCK_CLIENT,
+        async_unblock_client,
+        schema=vol.Schema(
+            {
+                vol.Required("mac_address"): cv.string,
             }
         ),
     )

@@ -52,6 +52,8 @@ SIGNAL_DECO_ADDED = f"{DOMAIN}-deco-added"
 
 # Services
 SERVICE_REBOOT_DECO = "reboot_deco"
+SERVICE_BLOCK_CLIENT = "block_client"
+SERVICE_UNBLOCK_CLIENT = "unblock_client"
 
 # Platforms
 PLATFORMS = [DEVICE_TRACKER_DOMAIN, SENSOR_DOMAIN]

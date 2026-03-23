@@ -11,3 +11,27 @@ reboot_deco:
           integration: tplink_deco
           manufacturer: TP-Link Deco
           multiple: true
+
+block_client:
+  name: Block Client
+  description: Block a client device from the network by MAC address.
+  fields:
+    mac_address:
+      name: MAC Address
+      description: The MAC address of the client to block (e.g. AA:BB:CC:DD:EE:FF).
+      required: true
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:
+
+unblock_client:
+  name: Unblock Client
+  description: Unblock a previously blocked client device, restoring network access.
+  fields:
+    mac_address:
+      name: MAC Address
+      description: The MAC address of the client to unblock (e.g. AA:BB:CC:DD:EE:FF).
+      required: true
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:
