@@ -255,7 +255,11 @@ class TplinkDecoApi:
 
     # Return the set of currently blocked MAC addresses.
     async def async_list_blocked_clients(self) -> set:
-        return await self._async_call_with_retry(self._async_list_blocked_clients)
+        try:
+            return await self._async_call_with_retry(self._async_list_blocked_clients)
+        except Exception as err:
+            _LOGGER.warning("Could not fetch blocked clients list: %s", err)
+            return set()
 
     async def _async_list_blocked_clients(self) -> set:
         await self.async_login_if_needed()
@@ -270,12 +274,18 @@ class TplinkDecoApi:
         )
 
         data = self._decrypt_data(context, response_json["data"])
-        check_data_error_code(context, data)
+        # Log the full response so we can see the actual structure from the firmware
+        _LOGGER.warning("List Blocked Clients raw response: %s", data)
+
+        # Don't raise on error_code — data may still contain the list
+        error_code = data.get("error_code") or data.get("errorcode")
+        if error_code and error_code not in (0, "0", ""):
+            _LOGGER.warning("%s error_code=%s, trying to extract data anyway", context, error_code)
 
         try:
             mac_list = data.get("result", {}).get("mac_list", [])
             blocked = {entry["mac"].upper() for entry in mac_list if "mac" in entry}
-            _LOGGER.debug("Blocked clients: %s", blocked)
+            _LOGGER.warning("Blocked clients parsed: %s", blocked)
             return blocked
         except Exception as err:
             _LOGGER.error("%s parse response error=%s, data=%s", context, err, data)
