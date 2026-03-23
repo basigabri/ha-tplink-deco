@@ -104,6 +104,7 @@ class TpLinkDecoClient:
         self.name = None
         self.ip_address = None
         self.online = False
+        self.blocked = False
         self.connection_type = None
         self.interface = None
         self.down_kilobytes_per_s = 0
@@ -258,6 +259,10 @@ class TplinkDecoClientUpdateCoordinator(DataUpdateCoordinator):
             ]
         )
 
+        blocked_macs = await async_call_and_propagate_config_error(
+            self.api.async_list_blocked_clients
+        )
+
         if len(deco_client_responses) > 0:
             # deco_macs is not subscriptable, must be iterated
             for deco_mac, deco_clients in zip(deco_macs, deco_client_responses):
@@ -271,6 +276,7 @@ class TplinkDecoClientUpdateCoordinator(DataUpdateCoordinator):
                             "_async_update_data: Found new client mac=%s", client.mac
                         )
                     client.update(deco_client, deco_mac, utc_point_in_time)
+                    client.blocked = client_mac.upper() in blocked_macs
                     clients[client_mac] = client
 
         # Copy over clients no longer online
@@ -278,6 +284,7 @@ class TplinkDecoClientUpdateCoordinator(DataUpdateCoordinator):
             mac = client.mac
             if mac not in clients:
                 clients[mac] = client
+                client.blocked = mac.upper() in blocked_macs
                 if client.last_activity is None:
                     client.online = False
                 else:

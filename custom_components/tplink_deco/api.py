@@ -253,6 +253,34 @@ class TplinkDecoApi:
         check_data_error_code(context, data)
         _LOGGER.debug("Unblocked client %s", mac)
 
+    # Return the set of currently blocked MAC addresses.
+    async def async_list_blocked_clients(self) -> set:
+        return await self._async_call_with_retry(self._async_list_blocked_clients)
+
+    async def _async_list_blocked_clients(self) -> set:
+        await self.async_login_if_needed()
+
+        context = "List Blocked Clients"
+        payload = {"operation": "read"}
+        response_json = await self._async_post(
+            context,
+            f"{self._host}/cgi-bin/luci/;stok={self._stok}/admin/client",
+            params={"form": "black_list"},
+            data=self._encode_payload(payload),
+        )
+
+        data = self._decrypt_data(context, response_json["data"])
+        check_data_error_code(context, data)
+
+        try:
+            mac_list = data.get("result", {}).get("mac_list", [])
+            blocked = {entry["mac"].upper() for entry in mac_list if "mac" in entry}
+            _LOGGER.debug("Blocked clients: %s", blocked)
+            return blocked
+        except Exception as err:
+            _LOGGER.error("%s parse response error=%s, data=%s", context, err, data)
+            raise err
+
     # Return list of clients. Default lists clients for all decos.
     async def async_list_clients(self, deco_mac="default") -> dict:
         return await self._async_call_with_retry(self._async_list_clients, deco_mac)

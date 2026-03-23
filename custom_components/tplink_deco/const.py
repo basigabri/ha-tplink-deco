@@ -22,6 +22,7 @@ DEVICE_TYPE_CLIENT = "client"
 DEVICE_TYPE_DECO = "deco"
 
 # Attributes
+ATTR_BLOCKED = "blocked"
 ATTR_BSSID_BAND2_4 = "bssid_band2_4"
 ATTR_BSSID_BAND5 = "bssid_band5"
 ATTR_CONNECTION_TYPE = "connection_type"
