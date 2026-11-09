@@ -24,6 +24,7 @@ DEVICE_TYPE_CLIENT = "client"
 DEVICE_TYPE_DECO = "deco"
 
 # Attributes
+ATTR_BLOCKED = "blocked"
 ATTR_BSSID_BAND2_4 = "bssid_band2_4"
 ATTR_BSSID_BAND5 = "bssid_band5"
 ATTR_BACKHAUL_BSSID_BAND2_4 = "backhaul_bssid_band2_4"
@@ -64,6 +65,8 @@ SERVICE_REBOOT_DECO = "reboot_deco"
 SERVICE_PAUSE_POLLING = "pause_polling"
 SERVICE_RESUME_POLLING = "resume_polling"
 SERVICE_DOWNLOAD_SYSTEM_LOG = "download_system_log"
+SERVICE_BLOCK_CLIENT = "block_client"
+SERVICE_UNBLOCK_CLIENT = "unblock_client"
 # Platforms
 PLATFORMS = [
     "device_tracker",

@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import ATTR_BACKHAUL_BSSID_BAND2_4
 from .const import ATTR_BACKHAUL_BSSID_BAND5
+from .const import ATTR_BLOCKED
 from .const import ATTR_BSSID_BAND2_4
 from .const import ATTR_BSSID_BAND5
 from .const import ATTR_CONNECTION_TYPE
@@ -432,6 +433,7 @@ class TplinkDecoClientDeviceTracker(CoordinatorEntity, RestoreEntity, ScannerEnt
         """Return extra state attributes."""
         deco = self._coordinator_decos.data.decos.get(self._attr_deco_mac)
         attributes = {
+            ATTR_BLOCKED: self._client.blocked,
             ATTR_CONNECTION_TYPE: self._attr_connection_type,
             ATTR_DEVICE_TYPE: DEVICE_TYPE_CLIENT,
             ATTR_INTERFACE: self._attr_interface,

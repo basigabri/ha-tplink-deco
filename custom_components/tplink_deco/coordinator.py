@@ -178,6 +178,7 @@ class TpLinkDecoClient:
         self.name = None
         self.ip_address = None
         self.online = False
+        self.blocked = False
         self.connection_type = None
         self.interface = None
         self.down_kilobytes_per_s = 0
@@ -195,6 +196,7 @@ class TpLinkDecoClient:
         self.name = normalize_name(data.get("name"))
         self.ip_address = filter_invalid_ip(data.get("ip"))
         self.online = data.get("online")
+        self.blocked = bool(data.get("blocked"))
         self.connection_type = data.get("connection_type")
         self.interface = data.get("interface")
         self.down_kilobytes_per_s = bytes_to_bits(data.get("down_speed", 0))

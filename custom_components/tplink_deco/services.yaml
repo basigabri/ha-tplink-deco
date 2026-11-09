@@ -47,3 +47,41 @@ download_system_log:
             - INFO
             - DEBUG
             - ALL
+block_client:
+  name: Block client
+  description: >-
+    Cut a client off from the internet by adding it to the Deco blocklist, the
+    same as Block in the Deco app.
+  fields:
+    config_entry_id:
+      name: Deco
+      description: TP-Link Deco entry to use. Required when more than one entry is loaded.
+      required: false
+      selector:
+        config_entry:
+          integration: tplink_deco
+    mac_address:
+      name: MAC address
+      description: MAC address of the client to block.
+      required: true
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:
+unblock_client:
+  name: Unblock client
+  description: Restore a blocked client's internet access.
+  fields:
+    config_entry_id:
+      name: Deco
+      description: TP-Link Deco entry to use. Required when more than one entry is loaded.
+      required: false
+      selector:
+        config_entry:
+          integration: tplink_deco
+    mac_address:
+      name: MAC address
+      description: MAC address of the client to unblock.
+      required: true
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:

@@ -143,6 +143,8 @@ reliable across Deco models and firmware versions.
 - `tplink_deco.resume_polling`
 - `tplink_deco.reboot_deco`
 - `tplink_deco.download_system_log`
+- `tplink_deco.block_client`
+- `tplink_deco.unblock_client`
 
 ---
 
@@ -204,6 +206,7 @@ By default, Home Assistant may link a client tracker to a device from another in
 
 | Attribute            | Example Values (comma separated) |
 | -------------------- | -------------------------------- |
+| blocked              | false, true                      |
 | interface            | main, guest                      |
 | down_kilobytes_per_s | 10.25                            |
 | up_kilobytes_per_s   | 11.75                            |
@@ -266,6 +269,25 @@ response_variable: system_log
 The action isn't available on firmware that uses the legacy encrypted web
 session, such as the Deco S7 firmware listed under
 [Tested Devices](#tested-devices).
+
+#### Block / Unblock Client Services
+
+Cut a client off from the internet, or restore its access, the same as Block in
+the Deco app. The MAC address may use colons or dashes. A client's
+`blocked` attribute shows whether it is currently blocked.
+
+```yaml
+service: tplink_deco.block_client
+data:
+  mac_address: "AA:BB:CC:DD:EE:FF"
+  config_entry_id: 01JABCDEF0123456789ABCDEFG # required with more than one Deco entry
+```
+
+```yaml
+service: tplink_deco.unblock_client
+data:
+  mac_address: "AA:BB:CC:DD:EE:FF"
+```
 
 <!-- ha-marketplace:exclude-start -->
 

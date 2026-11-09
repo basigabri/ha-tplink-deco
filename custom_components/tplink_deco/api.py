@@ -251,6 +251,53 @@ class TplinkDecoApi:
         self._check_authenticated_data_error_code(context, data)
         _LOGGER.debug("Rebooted decos %s", deco_macs)
 
+    # Cut a client off from the internet by adding it to the mesh blocklist.
+    async def async_block_client(
+        self, mac: str, name: str, client_type: str = "other"
+    ) -> None:
+        payload = {
+            "operation": "block",
+            "params": {
+                "client_list": [
+                    {
+                        "mac": mac,
+                        "name": base64.b64encode(name.encode()).decode(),
+                        "client_type": client_type,
+                    }
+                ]
+            },
+        }
+        async with self._operation_lock:
+            await self._async_call_with_retry(
+                self._async_write_black_list, f"Block Client {mac}", payload
+            )
+
+    # Restore a client's internet access by removing it from the blocklist.
+    async def async_unblock_client(self, mac: str) -> None:
+        payload = {"operation": "unblock", "params": {"client_list": [mac]}}
+        async with self._operation_lock:
+            await self._async_call_with_retry(
+                self._async_write_black_list, f"Unblock Client {mac}", payload
+            )
+
+    async def _async_write_black_list(self, context: str, payload: dict) -> None:
+        await self.async_login_if_needed()
+
+        response_json = await self._async_post(
+            context,
+            f"{self._host}/cgi-bin/luci/;stok={self._stok}/admin/client",
+            params={"form": "black_list"},
+            data=self._encode_payload(payload),
+        )
+
+        # block / unblock acknowledge with an unencrypted {"error_code": 0}
+        if "error_code" in response_json or "errorcode" in response_json:
+            data = response_json
+        else:
+            data = self._decrypt_data(context, response_json["data"])
+        self._check_authenticated_data_error_code(context, data)
+        _LOGGER.debug("%s done", context)
+
     async def async_get_wireless(self, form: str) -> dict:
         """Return wireless configuration for a form."""
         async with self._operation_lock:
