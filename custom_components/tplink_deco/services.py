@@ -108,6 +108,15 @@ def _write_text(path: str, text: str) -> None:
         f.write(text)
 
 
+def _async_refresh_clients_later(hass: HomeAssistant, clients_coordinator) -> None:
+    """Refresh clients in the background so the action returns right away.
+
+    A client refresh polls every Deco and can take much longer than the
+    block / unblock request itself.
+    """
+    hass.async_create_task(clients_coordinator.async_request_refresh())
+
+
 def async_setup_services(hass: HomeAssistant) -> None:
     async def async_download_system_log(call: ServiceCall) -> ServiceResponse:
         entry = async_get_target_entry(hass, call.data.get(ATTR_CONFIG_ENTRY_ID))
@@ -140,7 +149,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         name = client.name if client is not None and client.name else mac
 
         await data[COORDINATOR_DECOS_KEY].api.async_block_client(mac, name)
-        await clients_coordinator.async_request_refresh()
+        _async_refresh_clients_later(hass, clients_coordinator)
 
     async def async_unblock_client(call: ServiceCall) -> None:
         entry = async_get_target_entry(hass, call.data.get(ATTR_CONFIG_ENTRY_ID))
@@ -149,7 +158,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await data[COORDINATOR_DECOS_KEY].api.async_unblock_client(
             call.data[ATTR_MAC_ADDRESS]
         )
-        await data[COORDINATOR_CLIENTS_KEY].async_request_refresh()
+        _async_refresh_clients_later(hass, data[COORDINATOR_CLIENTS_KEY])
 
     hass.services.async_register(
         DOMAIN,

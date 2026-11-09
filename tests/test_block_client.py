@@ -197,9 +197,21 @@ async def hass():
         },
         config_entries=FakeConfigEntries(entries),
         services=FakeServices(),
+        tasks=[],
     )
+    hass.async_create_task = hass.tasks.append
     assert await async_setup(hass, {}) is True
     return hass
+
+
+async def _assert_refreshes_in_background(hass, data):
+    """The action returns before the slow client refresh, which runs after."""
+    refresh = data[COORDINATOR_CLIENTS_KEY].async_request_refresh
+    refresh.assert_called_once()
+    refresh.assert_not_awaited()
+    assert len(hass.tasks) == 1
+    await hass.tasks.pop()
+    refresh.assert_awaited_once()
 
 
 def _data(hass, entry_id):
@@ -218,7 +230,7 @@ async def test_block_uses_known_client_name_and_refreshes(hass):
     data[COORDINATOR_DECOS_KEY].api.async_block_client.assert_awaited_once_with(
         MAC, "Phone"
     )
-    data[COORDINATOR_CLIENTS_KEY].async_request_refresh.assert_awaited_once()
+    await _assert_refreshes_in_background(hass, data)
     _data(hass, "second")[
         COORDINATOR_DECOS_KEY
     ].api.async_block_client.assert_not_awaited()
@@ -249,7 +261,7 @@ async def test_unblock_targets_entry_and_refreshes(hass):
 
     data = _data(hass, "first")
     data[COORDINATOR_DECOS_KEY].api.async_unblock_client.assert_awaited_once_with(MAC)
-    data[COORDINATOR_CLIENTS_KEY].async_request_refresh.assert_awaited_once()
+    await _assert_refreshes_in_background(hass, data)
 
 
 @pytest.mark.asyncio
