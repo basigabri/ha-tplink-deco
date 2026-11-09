@@ -1,5 +1,173 @@
 # TP-Link Deco
 
+[![GitHub Release](https://img.shields.io/github/v/release/amosyuen/ha-tplink-deco?style=for-the-badge)](https://github.com/amosyuen/ha-tplink-deco/releases)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/amosyuen/ha-tplink-deco?style=for-the-badge)](https://github.com/amosyuen/ha-tplink-deco/commits/main)
+[![Wiki](https://img.shields.io/badge/docs-wiki-blue?style=for-the-badge)](https://github.com/amosyuen/ha-tplink-deco/wiki)
+[![License](https://img.shields.io/github/license/amosyuen/ha-tplink-deco?style=for-the-badge)](LICENSE)
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=for-the-badge)](https://github.com/pre-commit/pre-commit)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/psf/black)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz)
+
+[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge)]()
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.4%2B-blue?style=for-the-badge)](https://www.home-assistant.io/)
+
+---
+
+## 🚀 Overview
+
+This integration provides local polling control and diagnostics for TP-Link Deco systems within Home Assistant.
+
+For installation, configuration, troubleshooting, diagnostics, and firmware notes, see the [TP-Link Deco Wiki](https://github.com/amosyuen/ha-tplink-deco/wiki).
+
+---
+
+## ✨ Features
+
+### Diagnostics
+
+- CPU usage (raw + smoothed)
+- Memory usage (raw + smoothed)
+- Backhaul and network diagnostics
+- Monthly mobile data usage on supported 5G Deco firmware
+- Coordinator health (last successful update, response time, timeouts, query mode,
+  and last error)
+
+### Session recovery
+
+- Keeps the current Deco session during temporary connection drops to avoid
+  unnecessary logins and session exhaustion.
+- Automatically establishes a new session when the Deco rejects a stale session
+  with HTTP 401/403.
+- Recovers encrypted legacy sessions when a rebooted Deco returns an empty or
+  invalid encrypted response.
+
+### CPU / Memory sensors
+
+Two types of sensors are available:
+
+- **Raw** → direct values from the Deco (real-time, can fluctuate)
+- **Smoothed** → averaged values over time (stable, ideal for dashboards)
+
+**Use raw for:**
+
+- debugging
+- real-time monitoring
+
+**Use smoothed for:**
+
+- dashboards
+- automations
+- trend analysis
+
+---
+
+### Polling Control
+
+#### Runtime control
+
+- Pause / resume polling:
+
+  - `tplink_deco.pause_polling`
+  - `tplink_deco.resume_polling`
+
+- Switch entity:
+  - `switch.deco_polling`
+
+---
+
+#### Polling interval control
+
+Adjustable polling interval:
+
+- 10 sec
+- 30 sec (default)
+- 60 sec
+- 120 sec
+
+Configurable:
+
+- during setup
+- via Home Assistant UI (select entity)
+
+#### Deco status polling
+
+`device_list` polling can be configured independently from client and
+performance polling in the integration options. Enter an interval of at least
+10 seconds, or use `0` to run `device_list` only during integration startup.
+
+When automatic Deco status polling is disabled, client tracking and performance
+updates continue normally. Deco online state, topology changes, and newly added
+Deco nodes are refreshed only after reloading the integration or pressing the
+`Refresh Deco status` button.
+
+Some Deco firmware, including reported X20 firmware, may briefly interrupt
+wireless-backhaul traffic while processing `device_list`. A longer interval or
+startup-only mode can mitigate this firmware behavior.
+
+---
+
+#### Benefits
+
+- Reduces API load
+- Prevents session conflicts
+- Improves stability
+- Better control over performance
+
+---
+
+### WiFi network status
+
+Read-only binary sensors show whether the main, guest and IoT WiFi networks are
+enabled. Only networks exposed by the Deco firmware are created. The main WiFi
+sensor is disabled by default because most models do not allow that network to
+be switched off.
+
+Network names (SSIDs) are not exposed by default. Enable **Show WiFi network
+names on the WiFi status sensors** in the integration options to add them as
+attributes. A sensor shows a single `ssid` attribute when all bands use the same
+name, or one attribute per band (for example `ssid_band2_4` and `ssid_band5_1`)
+when the names differ. The attribute is omitted when no name is reported.
+Passwords are never read.
+
+Wireless status uses the configured integration polling interval and does not
+delay integration setup when the optional endpoint is slow or unavailable.
+Changing WiFi settings is not supported because the local write API is not
+reliable across Deco models and firmware versions.
+
+---
+
+## 🔧 Services
+
+- `tplink_deco.pause_polling`
+- `tplink_deco.resume_polling`
+- `tplink_deco.reboot_deco`
+- `tplink_deco.download_system_log`
+
+---
+
+## 🔌 Entities
+
+### Polling
+
+- `switch.deco_polling`
+- `select.polling_interval`
+- `button.refresh_deco_status`
+
+### Diagnostics
+
+- CPU usage (raw + smoothed)
+- Memory usage (raw + smoothed)
+- Mobile data usage (only created when exposed by the firmware)
+
+### WiFi status
+
+- Main WiFi (disabled by default)
+- Guest WiFi
+- IoT WiFi
+
+# TP-Link Deco
+
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
@@ -13,13 +181,6 @@
 
 [![Community Forum][forum-shield]][forum]
 
-> [!CAUTION]
-> This integration is in MAINTENANCE MODE.
->
-> I no longer have a deco unit so I cannot test this integration properly. I will not implement any new feature requests and will only implement simple fixes required by Home Assistant.
->
-> If anybody is interested in taking over this repo and maintaining it, please let me know.
-
 ## Functionality
 
 This integration is a local polling integration that logs into the admin web UI for TP-Link Deco routers. Currently the only feature implemented is device trackers for active devices.
@@ -27,6 +188,8 @@ This integration is a local polling integration that logs into the admin web UI 
 ### Device Trackers
 
 Device trackers are added for both decos and clients. The device tracker state marks whether the device is connected to the deco. If a device is not present, the previous values for attributes are saved except for `down_kilobytes_per_s` and `up_kilobytes_per_s`.
+
+By default, Home Assistant may link a client tracker to a device from another integration when both report the same MAC address. Disable **Link client trackers to devices by MAC address** in the integration options to prevent this. The tracker keeps its entity ID and exposes the MAC as a state attribute, but no longer participates in MAC-based device matching or DHCP discovery. Existing client devices can then be removed manually; Deco devices remain protected.
 
 #### Common Attributes
 
@@ -49,19 +212,21 @@ Device trackers are added for both decos and clients. The device tracker state m
 
 #### Deco Attributes
 
-| Attribute       | Example Values (comma separated) |
-| --------------- | -------------------------------- |
-| hw_version      | 2.0                              |
-| sw_version      | 1.5.1 Build 20210204 Rel. 50164  |
-| device_model    | x60                              |
-| internet_online | false, true                      |
-| master          | false, true                      |
-| bssid_band2_4   | A1:B2:C3:D4:E5:F6                |
-| bssid_band5     | A1:B2:C3:D4:E5:F6                |
-| signal_band2_4  | 3                                |
-| signal_band2_4  | 4                                |
-| deco_device     | living_room                      |
-| deco_mac        | 1A-B2-C3-4D-56-EF                |
+| Attribute              | Example Values (comma separated) |
+| ---------------------- | -------------------------------- |
+| hw_version             | 2.0                              |
+| sw_version             | 1.5.1 Build 20210204 Rel. 50164  |
+| device_model           | x60                              |
+| internet_online        | false, true                      |
+| master                 | false, true                      |
+| bssid_band2_4          | A1:B2:C3:D4:E5:F6                |
+| bssid_band5            | A1:B2:C3:D4:E5:F6                |
+| backhaul_bssid_band2_4 | A1:B2:C3:D4:E5:F6                |
+| backhaul_bssid_band5   | A1:B2:C3:D4:E5:F6                |
+| signal_band2_4         | 3                                |
+| signal_band2_4         | 4                                |
+| deco_device            | living_room                      |
+| deco_mac               | 1A-B2-C3-4D-56-EF                |
 
 Note: `deco_device` and `deco_mac` will only be set for non-master decos.
 
@@ -83,11 +248,42 @@ target:
     - d7f96b1f312d83f195b35ecdfbb3b02b
 ```
 
+#### Download System Log Service
+
+Saves the Deco system log to `<config>/tplink_deco_logs/<filename>` and returns
+the file path and line count. The file is the one the web UI's Save Log button
+produces under Advanced > System > System Log.
+
+```yaml
+service: tplink_deco.download_system_log
+data:
+  config_entry_id: 01JABCDEF0123456789ABCDEFG # required with more than one Deco entry
+  filename: deco.log # optional, defaults to deco-<timestamp>.log
+  log_level: WARNING # optional, defaults to ALL
+response_variable: system_log
+```
+
+The action isn't available on firmware that uses the legacy encrypted web
+session, such as the Deco S7 firmware listed under
+[Tested Devices](#tested-devices).
+
+<!-- ha-marketplace:exclude-start -->
+
 {% if not installed %}
 
 ## Installation
 
-### HACS
+### Marketplace / HACS
+
+For Home Assistant 2026.11 and later:
+
+1. Open **Settings > Marketplace**.
+2. Search for **TP-Link Deco**.
+3. Select the integration and choose **Install**.
+
+For Home Assistant 2026.10 and earlier, follow the same steps under **HACS > Integrations**.
+
+The button below opens this repository in Marketplace on Home Assistant 2026.11 and later, and in HACS on older versions:
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=amosyuen&repository=ha-tplink-deco&category=integration)
 
@@ -101,6 +297,8 @@ target:
 6. Restart Home Assistant
 
 {% endif %}
+
+<!-- ha-marketplace:exclude-end -->
 
 ## Configuration (Important! Please Read)
 
@@ -229,6 +427,7 @@ message: "device_tracker.amos_phone_wifi connected to main 5G through Guest Room
 - Deco P9
 - Deco PX50
 - Deco S4
+- Deco S7 (1.3.0 Build 20220609 Rel. 64814)
 - Deco X20
 - Deco X50
 - Deco X60
@@ -239,9 +438,9 @@ message: "device_tracker.amos_phone_wifi connected to main 5G through Guest Room
 - Mercusys Halo H70X
 - Mercusys Halo H80X
 
-## Not Working Devices
-
-- Deco S7 (1.3.0 Build 20220609 Rel. 64814)
+The Deco S7 firmware listed above uses a legacy encrypted local-web session over
+HTTP. The integration detects and handles this authentication and request format,
+including numeric values returned as strings by the legacy API.
 
 ## Known Issues
 

@@ -12,7 +12,7 @@ on:
 
 env:
   # Keep in sync with .devcontainer/devcontainer.json
-  DEFAULT_PYTHON: 3.12
+  DEFAULT_PYTHON: 3.13
 
 jobs:
   pre-commit:
@@ -20,10 +20,10 @@ jobs:
     name: Pre-commit
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.1.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
@@ -40,12 +40,60 @@ jobs:
         run: |
           pre-commit run --all-files --show-diff-on-failure --color=always
 
+  tests:
+    runs-on: ubuntu-latest
+    name: Tests
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --constraint=requirements.txt pip
+          python -m pip --version
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --constraint=requirements.txt homeassistant pycryptodome pytest pytest-asyncio pytest-cov
+
+      - name: Run tests
+        run: |
+          python -m pytest --no-cov tests/
+
+  home-assistant-2026-11:
+    runs-on: ubuntu-latest
+    name: Home Assistant 2026.11
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install Home Assistant 2026.11 test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install homeassistant==2026.11.0 pycryptodome pytest pytest-asyncio pytest-cov
+
+      - name: Run tests against Home Assistant 2026.11
+        run: |
+          python -m pytest --no-cov tests/
+
   hacs:
     runs-on: "ubuntu-latest"
     name: HACS
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: HACS validation
         uses: hacs/action@main
@@ -58,7 +106,7 @@ jobs:
     name: Hassfest
     steps:
       - name: Check out the repository
-        uses: "actions/checkout@v6"
+        uses: "actions/checkout@v7"
 
       - name: Hassfest validation
         uses: "home-assistant/actions/hassfest@master"

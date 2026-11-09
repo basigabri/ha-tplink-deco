@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.core import callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import selector
 import voluptuous as vol
 
 from .__init__ import async_create_and_refresh_coordinators
@@ -22,13 +23,20 @@ from .const import CONF_CLIENT_POSTFIX
 from .const import CONF_CLIENT_PREFIX
 from .const import CONF_DECO_POSTFIX
 from .const import CONF_DECO_PREFIX
+from .const import CONF_DEVICE_LIST_INTERVAL
+from .const import CONF_EXPOSE_WIFI_SSIDS
+from .const import CONF_LINK_CLIENT_DEVICES
 from .const import CONF_TIMEOUT_ERROR_RETRIES
 from .const import CONF_TIMEOUT_SECONDS
 from .const import CONF_VERIFY_SSL
 from .const import COORDINATOR_CLIENTS_KEY
 from .const import COORDINATOR_DECOS_KEY
+from .const import COORDINATOR_MOBILE_KEY
+from .const import COORDINATOR_WIRELESS_KEY
 from .const import DEFAULT_CONSIDER_HOME
 from .const import DEFAULT_DECO_POSTFIX
+from .const import DEFAULT_EXPOSE_WIFI_SSIDS
+from .const import DEFAULT_LINK_CLIENT_DEVICES
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DEFAULT_TIMEOUT_ERROR_RETRIES
 from .const import DEFAULT_TIMEOUT_SECONDS
@@ -36,6 +44,34 @@ from .const import DOMAIN
 from .exceptions import TimeoutException
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+SCAN_INTERVAL_OPTIONS = [10, 30, 60, 120]
+SCAN_INTERVAL_SELECTOR_OPTIONS = [str(value) for value in SCAN_INTERVAL_OPTIONS]
+CONNECTION_SETTINGS = (
+    CONF_HOST,
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    CONF_VERIFY_SSL,
+)
+
+
+def _get_scan_interval(data: dict[str:Any]) -> str:
+    scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    try:
+        scan_interval = int(scan_interval)
+    except (TypeError, ValueError):
+        scan_interval = DEFAULT_SCAN_INTERVAL
+
+    if scan_interval not in SCAN_INTERVAL_OPTIONS:
+        scan_interval = DEFAULT_SCAN_INTERVAL
+
+    return str(scan_interval)
+
+
+def _normalize_intervals(data: dict[str:Any]) -> None:
+    if CONF_SCAN_INTERVAL in data:
+        data[CONF_SCAN_INTERVAL] = int(data[CONF_SCAN_INTERVAL])
+    if CONF_DEVICE_LIST_INTERVAL in data:
+        data[CONF_DEVICE_LIST_INTERVAL] = int(data[CONF_DEVICE_LIST_INTERVAL])
 
 
 def _get_auth_schema(data: dict[str:Any]):
@@ -51,7 +87,15 @@ def _get_schema(data: dict[str:Any]):
     if data is None:
         data = {}
     schema = _get_auth_schema(data)
-    scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    scan_interval = _get_scan_interval(data)
+    device_list_interval = data.get(CONF_DEVICE_LIST_INTERVAL, scan_interval)
+    try:
+        device_list_interval = int(device_list_interval)
+    except (TypeError, ValueError):
+        device_list_interval = int(scan_interval)
+    if device_list_interval != 0 and device_list_interval < 10:
+        device_list_interval = int(scan_interval)
+
     schema.update(
         {
             vol.Required(
@@ -60,7 +104,16 @@ def _get_schema(data: dict[str:Any]):
             vol.Required(
                 CONF_SCAN_INTERVAL,
                 default=scan_interval,
-            ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=SCAN_INTERVAL_SELECTOR_OPTIONS,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_DEVICE_LIST_INTERVAL,
+                default=device_list_interval,
+            ): vol.All(vol.Coerce(int), vol.Any(0, vol.Range(min=10))),
             vol.Required(
                 CONF_CONSIDER_HOME,
                 default=data.get(CONF_CONSIDER_HOME, DEFAULT_CONSIDER_HOME),
@@ -78,6 +131,14 @@ def _get_schema(data: dict[str:Any]):
             vol.Required(
                 CONF_VERIFY_SSL,
                 default=data.get(CONF_VERIFY_SSL, True),
+            ): bool,
+            vol.Required(
+                CONF_LINK_CLIENT_DEVICES,
+                default=data.get(CONF_LINK_CLIENT_DEVICES, DEFAULT_LINK_CLIENT_DEVICES),
+            ): bool,
+            vol.Required(
+                CONF_EXPOSE_WIFI_SSIDS,
+                default=data.get(CONF_EXPOSE_WIFI_SSIDS, DEFAULT_EXPOSE_WIFI_SSIDS),
             ): bool,
             vol.Optional(
                 CONF_CLIENT_PREFIX,
@@ -124,6 +185,8 @@ async def _async_test_credentials(hass: HomeAssistant, data: dict[str:Any]):
         await asyncio.gather(
             coordinators[COORDINATOR_DECOS_KEY].async_shutdown(),
             coordinators[COORDINATOR_CLIENTS_KEY].async_shutdown(),
+            coordinators[COORDINATOR_MOBILE_KEY].async_shutdown(),
+            coordinators[COORDINATOR_WIRELESS_KEY].async_shutdown(),
         )
         return {}
     except TimeoutException:
@@ -136,15 +199,13 @@ async def _async_test_credentials(hass: HomeAssistant, data: dict[str:Any]):
         return {"base": "invalid_host"}
     except Exception as err:
         _LOGGER.error("Error testing credentials: %s", err)
-        raise err
         return {"base": "unknown"}
 
 
 class TplinkDecoFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for tplink_deco."""
 
-    VERSION = 6
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
+    VERSION = 7
     reauth_entry: ConfigEntry = None
 
     def __init__(self):
@@ -156,6 +217,7 @@ class TplinkDecoFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
+            _normalize_intervals(user_input)
             self._errors = await _async_test_credentials(self.hass, user_input)
             if len(self._errors) == 0:
                 _ensure_user_input_optionals(user_input)
@@ -219,9 +281,14 @@ class TplinkDecoOptionsFlowHandler(config_entries.OptionsFlow):
 
         if user_input is not None:
             _ensure_user_input_optionals(user_input)
+            _normalize_intervals(user_input)
+            connection_settings_changed = any(
+                user_input.get(key) != self.data.get(key) for key in CONNECTION_SETTINGS
+            )
             self.data.update(user_input)
 
-            self._errors = await _async_test_credentials(self.hass, self.data)
+            if connection_settings_changed:
+                self._errors = await _async_test_credentials(self.hass, self.data)
             if len(self._errors) == 0:
                 self.hass.config_entries.async_update_entry(
                     entry=self.config_entry,
